@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<div>
+
+        <form action="{% url 'currency_rates' %}" method="post">
+    <div>
+
+         {{ form }}
+    </div>
+    <div>
+        {% csrf_token %}
+        <input type="submit" value="Pokaż kurs waluty" />
+    </div>
+    </form>
+</div>
+</body>
+</html>

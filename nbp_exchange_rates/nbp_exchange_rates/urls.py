@@ -16,12 +16,14 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-# from download_exchange import views
 # from .n views import get_rates
 from download_exchange import views
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path("get_rates/", views.get_rates, name="get_rates"),
+    path("download_rates/", views.download_rates, name="download_rates"),
+    path("currency_rates/", views.currency_rates, name="currency_rates"),
+    path("get_all_rates", views.get_all_rates, name="get_all_rates"),
+    # path("generated_data/", views.generated_data, name="generated_data"),
     path("", views.index, name="index"),
 
 ]

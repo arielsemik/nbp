@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<div>
+    <h1>
+        Pokazywanie kursów walut
+    </h1>
+         <input type="button" onclick="window.location.href='{% url 'get_all_rates' %}';" value="Pokaż Kursy walut"/>
+</div>
+<div>
+
+<h1>Pobieranie kursów walut</h1>
+        <form action="{% url 'download_rates' %}" method="post">
+    <div>
+        <label>Start data</label>
+        <input type="date" name="start_date" placeholder="yyyy-mm-dd" required>
+    </div>
+        <div>
+        <label>End data</label>
+        <input type="date" name="end_date" placeholder="yyyy-mm-dd" required>
+    </div>
+        <div>
+            {% csrf_token %}
+            <input type="submit" value="Pobierz kursy walut" />
+        </div>
+    </form>
+</div>
+
+<div>
+
+<h1>Pokazanie kursów walut</h1>
+        <form action="{% url 'currency_rates' %}" method="post">
+    <div>
+        <label>Start data</label>
+        <input type="date" name="start_date" placeholder="yyyy-mm-dd" required>
+    </div>
+    <div>
+        <label>End data</label>
+        <input type="date" name="end_date" placeholder="yyyy-mm-dd" required>
+    </div>
+    <div>
+        <label>codes</label>
+         {{ code }}
+        <select name="codes" id="codes">
+          {% for codea in codes %}
+          <option value="{{code}}">{{codea}}</option>
+          {% endfor %}
+        </select>
+    </div>
+    <div>
+        {% csrf_token %}
+        <input type="submit" value="Pokaż kursy waluty" />
+    </div>
+    </form>
+</div>
+</body>
+</html>
