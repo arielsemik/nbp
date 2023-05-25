@@ -5,18 +5,16 @@
     <title>Title</title>
 </head>
 <body>
-<div>
-
+    <div>
         <form action="{% url 'currency_rates' %}" method="post">
-    <div>
-
-         {{ form }}
+        <div>
+             {{ form }}
+        </div>
+        <div>
+            {% csrf_token %}
+            <input type="submit" value="Pokaż kurs waluty" />
+        </div>
+        </form>
     </div>
-    <div>
-        {% csrf_token %}
-        <input type="submit" value="Pokaż kurs waluty" />
-    </div>
-    </form>
-</div>
 </body>
 </html>

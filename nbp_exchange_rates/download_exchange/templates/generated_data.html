@@ -1,10 +1,18 @@
 <!DOCTYPE html>
+{% load django_tables2 %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Generated data</title>
 </head>
 <body>
-{{ data }}aaaaaaa
+    <div>
+        <div>
+            <input type="button" onclick="window.location.href='{% url 'index' %}';" value="Przejdz do strony gównej"/>
+        </div>
+        <div>
+        {% render_table table %}
+        </div>
+    </div>
 </body>
 </html>

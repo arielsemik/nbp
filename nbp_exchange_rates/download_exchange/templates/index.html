@@ -2,19 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Aplikacja służąca do pobierania kursów walut</title>
 </head>
 <body>
-<div>
-    <h1>
-        Kursy walut
-    </h1>
-         <input type="button" onclick="window.location.href='{% url 'get_all_rates' %}';" value="Pokaż kursy walut"/>
-         <input type="button" onclick="window.location.href='{% url 'download_rates' %}';" value="Pobierz kursy walut"/>
-         <input type="button" onclick="window.location.href='{% url 'currency_rates' %}';" value="Pokaż kursy walut z zakresu dat"/>
-</div>
-<div>
+    <div>
 
-</div>
+        <div>
+            <h1>
+                Kursy walut
+            </h1>
+                 <input type="button" onclick="window.location.href='{% url 'get_all_rates' %}';" value="Pokaż kursy walut"/>
+                 <input type="button" onclick="window.location.href='{% url 'download_rates' %}';" value="Pobierz kursy walut"/>
+                 <input type="button" onclick="window.location.href='{% url 'currency_rates' %}';" value="Pokaż kursy walut z zakresu dat"/>
+        </div>
+        <div>
+            {% if  downloaded  %}
+                <h3>Pobrano kursy walut z zakresu dat {{ start_date }} - {{ end_date }}</h3>
+            {% endif %}
+        </div>
+    </div>
 </body>
 </html>
