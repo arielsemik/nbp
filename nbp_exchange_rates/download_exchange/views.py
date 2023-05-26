@@ -6,9 +6,11 @@ from .forms import DateForms, CurrencyForms
 import requests
 from .models import Rate
 from django.shortcuts import render
-from .tables import RataTable
+from .tables import RatesTable
 from django.core.handlers.wsgi import WSGIRequest
 from requests.models import Response
+from django.db import DatabaseError
+
 
 def index(request: WSGIRequest) -> HttpResponse:
     template = loader.get_template("index.html")
@@ -17,13 +19,13 @@ def index(request: WSGIRequest) -> HttpResponse:
     }
     return HttpResponse(template.render(context, request))
 
+from datetime import date
 
-def get_exchangerates(start_date: date, end_date: date, table:  str = 'A') -> Response:
+def get_exchange_rates(start_date: date, end_date: date, table:  str = 'A') -> Response:
+
     url = f'http://api.nbp.pl/api/exchangerates/tables/{table}/{start_date}/{end_date}/'
-    data = requests.get(url)
-    print(data.status_code)
-    print(data)
-    return data
+    response = requests.get(url)
+    return response
 
 
 def check_existing_rates(day_data: dict, currency: dict) -> None:
@@ -34,15 +36,18 @@ def check_existing_rates(day_data: dict, currency: dict) -> None:
     code = currency.get('code')
     mid = currency.get('mid')
 
-    if Rate.objects.filter(code=code, effectiveDate=effective_date).count() == 0:
-        Rate.objects.create(
-            currency=currency_name,
-            code=code,
-            mid=mid,
-            table=table,
-            no=no,
-            effectiveDate=effective_date
-        )
+    try:
+        if Rate.objects.filter(code=code, effectiveDate=effective_date).count() == 0:
+            Rate.objects.create(
+                currency=currency_name,
+                code=code,
+                mid=mid,
+                table=table,
+                no=no,
+                effectiveDate=effective_date
+            )
+    except DatabaseError as e:
+        print('Wystąpił błąd z baza danych')
 
 
 def save_exchange_rates(exchange_rates_response: Response) -> None:
@@ -52,28 +57,6 @@ def save_exchange_rates(exchange_rates_response: Response) -> None:
             check_existing_rates(day_data=day_data, currency=currency)
 
 
-def return_for_code(request: WSGIRequest,
-                    exchange_rates_response: Response,
-                    start_date: date,
-                    end_date: date
-                    ) -> HttpResponse:
-
-    if exchange_rates_response.status_code == 404:
-        return HttpResponseNotFound(
-            'Brak danych lub wybrałeś tą samą datę w start_date i end_date. Cofnij i spróbuj wybrać poprawny '
-            'zakres dat'
-        )
-
-    elif exchange_rates_response.status_code == 400:
-        return HttpResponse( 'Start_date nie może być większa niż End_date. Cofnij i wybierz '
-            'poprawną datę.')
-
-
-    elif exchange_rates_response.status_code == 200:
-        save_exchange_rates(exchange_rates_response=exchange_rates_response)
-        return render(request, 'index.html', {"downloaded": True, 'start_date': start_date, 'end_date': end_date})
-
-
 def download_rates(request: WSGIRequest) -> HttpResponse:
     if request.method == "POST":
         form = DateForms(request.POST)
@@ -81,11 +64,17 @@ def download_rates(request: WSGIRequest) -> HttpResponse:
             form_data = form.cleaned_data
             start_date = form_data.get("start_date")
             end_date = form_data.get("end_date")
-            exchange_rates_response = get_exchangerates(start_date=start_date, end_date=end_date)
-            return_for_code(exchange_rates_response=exchange_rates_response,
-                            start_date=start_date,
-                            end_date=end_date,
-                            request=request)
+            exchange_rates_response = get_exchange_rates(start_date=start_date, end_date=end_date)
+
+            if exchange_rates_response.status_code == 404:
+                return HttpResponseNotFound(
+                    'Brak danych w tym przedziale lub wybrałeś tą samą datę w start_date i end_date. Cofnij i spróbuj wybrać poprawny zakres dat')
+            elif exchange_rates_response.status_code == 400:
+                return HttpResponseBadRequest(
+                    'Start_date nie może być większa niż End_date. Cofnij i wybierz poprawną datę.')
+            elif exchange_rates_response.status_code == 200:
+                save_exchange_rates(exchange_rates_response=exchange_rates_response)
+                return render(request, 'index.html', {"downloaded": True, 'start_date': start_date, 'end_date': end_date})
     else:
         form = DateForms()
     return render(request, 'download_rates.html', {"form": form})
@@ -105,7 +94,7 @@ def currency_rates(request: WSGIRequest) -> HttpResponse:
                 effectiveDate__gte=start_date,
                 effectiveDate__lte=end_date
             )
-            table = RataTable(data)
+            table = RatesTable(data)
             return render(request, 'generated_data.html', {"table": table})
     else:
         form = CurrencyForms()
