@@ -5,4 +5,4 @@ from .models import Rate
 class RatesTable(tables.Table):
     class Meta:
         model = Rate
-        fields = ('code', 'mid', 'effectiveDate')
+        fields = ('code', 'mid', 'effective_date')

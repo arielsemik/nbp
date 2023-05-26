@@ -1,6 +1,4 @@
-import datetime
-from datetime import date
-from django.http import HttpResponse, Http404, HttpResponseBadRequest, HttpResponseNotFound
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
 from django.template import loader
 from .forms import DateForms, CurrencyForms
 import requests
@@ -10,6 +8,7 @@ from .tables import RatesTable
 from django.core.handlers.wsgi import WSGIRequest
 from requests.models import Response
 from django.db import DatabaseError
+from datetime import date
 
 
 def index(request: WSGIRequest) -> HttpResponse:
@@ -19,7 +18,6 @@ def index(request: WSGIRequest) -> HttpResponse:
     }
     return HttpResponse(template.render(context, request))
 
-from datetime import date
 
 def get_exchange_rates(start_date: date, end_date: date, table:  str = 'A') -> Response:
 
@@ -37,17 +35,17 @@ def check_existing_rates(day_data: dict, currency: dict) -> None:
     mid = currency.get('mid')
 
     try:
-        if Rate.objects.filter(code=code, effectiveDate=effective_date).count() == 0:
+        if Rate.objects.filter(code=code, effective_date=effective_date).count() == 0:
             Rate.objects.create(
                 currency=currency_name,
                 code=code,
                 mid=mid,
                 table=table,
                 no=no,
-                effectiveDate=effective_date
+                effective_date=effective_date
             )
     except DatabaseError as e:
-        print('Wystąpił błąd z baza danych')
+        print('Wystąpił błąd z bazą danych.')
 
 
 def save_exchange_rates(exchange_rates_response: Response) -> None:
@@ -68,7 +66,8 @@ def download_rates(request: WSGIRequest) -> HttpResponse:
 
             if exchange_rates_response.status_code == 404:
                 return HttpResponseNotFound(
-                    'Brak danych w tym przedziale lub wybrałeś tą samą datę w start_date i end_date. Cofnij i spróbuj wybrać poprawny zakres dat')
+                    'Brak danych w tym przedziale lub wybrałeś tą samą datę w start_date i end_date. Cofnij i spróbuj '
+                    'wybrać poprawny zakres dat')
             elif exchange_rates_response.status_code == 400:
                 return HttpResponseBadRequest(
                     'Start_date nie może być większa niż End_date. Cofnij i wybierz poprawną datę.')
@@ -91,8 +90,8 @@ def currency_rates(request: WSGIRequest) -> HttpResponse:
 
             data = Rate.objects.filter(
                 code=code,
-                effectiveDate__gte=start_date,
-                effectiveDate__lte=end_date
+                effective_date__gte=start_date,
+                effective_date__lte=end_date
             )
             table = RatesTable(data)
             return render(request, 'generated_data.html', {"table": table})
@@ -100,8 +99,3 @@ def currency_rates(request: WSGIRequest) -> HttpResponse:
         form = CurrencyForms()
     return render(request, 'show_rates.html', {"form": form})
 
-
-def get_all_rates(request: WSGIRequest) -> HttpResponse:
-
-    rates = Rate.objects.all().values_list('code', 'effectiveDate')
-    return HttpResponse(rates)
