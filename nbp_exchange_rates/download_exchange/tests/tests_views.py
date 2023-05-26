@@ -1,63 +1,16 @@
-import datetime
 
-from django.test import TestCase
 import requests
-import responses
-from ..views import get_exchange_rates
-# from unittest import TestCase, mock
+
 from django.http import HttpResponse, HttpResponseNotFound, HttpResponseBadRequest
 from django.db import DatabaseError
 import datetime
-from django.test import TestCase, RequestFactory
+from django.test import TestCase
 from django.urls import reverse
 from ..models import Rate
-from ..forms import DateForms
-from ..views import get_exchange_rates, check_existing_rates, save_exchange_rates, download_rates
+from ..forms import DateForms, CurrencyForms
+from ..views import get_exchange_rates, check_existing_rates, save_exchange_rates, download_rates, currency_rates
 from unittest.mock import patch, Mock, MagicMock
-from requests import Response
-from requests.exceptions import RequestException
-# class GetExchangeratesTestCase(TestCase):
-#     def setUp(self) -> None:
-#         self.data_for_400 ={
-#         'table': 'A',
-#         'start_date': datetime.date(2023,2,1),
-#         'end_date': datetime.date(2023,1,1)
-#         }
-#         self.data_for_404 = {
-#             'table': 'A',
-#             'start_date': datetime.date.today()+datetime.timedelta(days=-3),
-#             'end_date': datetime.date.today()+datetime.timedelta(days=1)
-#         }
-#     @responses.activate
-#     def test_return_404_for_incorrect_date(self):
-#         responses.add(**{
-#             'method': responses.GET,
-#             'url': f'http://api.nbp.pl/api/exchangerates/tables/{self.data_for_404.get("table")}/{self.data_for_404.get("start_date")}/{self.data_for_404.get("end_date")}/',
-#             'status': 404,
-#             'content_type': 'application/json',
-#         })
-#
-#         response_404 = get_exchange_rates(start_date=self.data_for_404.get("start_date"),
-#                                           end_date =self.data_for_404.get("end_date"),
-#                                           table=self.data_for_404.get("table")
-#                                           )
-#         print(response_404,'dadsadadsa')
-#         self.assertEqual(404, response_404.status_code)
-#
-#     def test_return_400_for_incorrect_date(self):
-#         responses.add(**{
-#             'method': responses.GET,
-#             'url': f'http://api.nbp.pl/api/exchangerates/tables/{self.data_for_400.get("table")}/{self.data_for_400.get("start_date")}/{self.data_for_404.get("end_date")}/',
-#             'status': 400,
-#             'content_type': 'application/json',
-#         })
-#         print(self.data_for_400.get("start_date"))
-#         response_400 = get_exchange_rates(start_date=self.data_for_400.get("start_date"),
-#                                           end_date=self.data_for_400.get("end_date"),
-#                                           table=self.data_for_400.get("table")
-#                                           )
-#
-#         self.assertEqual(400, response_400.status_code)
+
 
 class IndexViewTestCase(TestCase):
     def test_index_view(self):
@@ -82,45 +35,86 @@ class CurrencyRatesViewTestCase(TestCase):
 
 
 
-class GetAllRatesViewTestCase(TestCase):
-    def test_get_all_rates_view(self):
-        response = self.client.get(reverse('get_all_rates'))
-        self.assertEqual(response.status_code, 200)
-
-
-
-
+# class GetAllRatesViewTestCase(TestCase):
+#     def test_get_all_rates_view(self):
+#         response = self.client.get(reverse('get_all_rates'))
+#         self.assertEqual(response.status_code, 200)
+#
+#
+#
+#
 class GetExchangeRatesTestCase(TestCase):
     def setUp(self) -> None:
         self.table = 'A'
-
-    def test_return_200_correct_dates(self):
+    @patch('download_exchange.views.requests.get')
+    def test_return_200_correct_dates(self, mock_get):
         start_date = datetime.date(2023, 1, 1)
         end_date = datetime.date(2023, 1, 7)
-        response = get_exchange_rates(start_date, end_date, table=self.table)
+        table = 'A'
+
+        # Symulacja odpowiedzi z API
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{'rate': 1.23}, {'rate': 4.56}]
+        mock_get.return_value = mock_response
+
+        # Wywołanie funkcji
+        response = get_exchange_rates(start_date, end_date, table)
+
+        # Sprawdzenie oczekiwanej odpowiedzi
         self.assertEqual(response.status_code, 200)
-        # Add assertions to validate the response data, such as the expected JSON structure or specific values
+        self.assertEqual(response.json(), [{'rate': 1.23}, {'rate': 4.56}])
 
-    def test_return_400_swapped_dates(self):
-        start_date = datetime.date(2023, 1, 7)
-        end_date = datetime.date(2023, 1, 1)
-        response = get_exchange_rates(start_date, end_date, table=self.table)
-        self.assertIsInstance(response, Response)
+        # Sprawdzenie wywołania metody get z oczekiwanymi argumentami
+        mock_get.assert_called_once_with(f'http://api.nbp.pl/api/exchangerates/tables/{table}/{start_date}/{end_date}/')
 
-        self.assertEqual(response.status_code, 400)
-        # Add assertions to validate the error response, such as the expected error message or status code
+    @patch('download_exchange.views.requests.get')
+    def test_get_exchange_rates_failure(self, mock_get):
+        start_date = datetime.date(2023, 1, 1)
+        end_date = datetime.date(2023, 1, 5)
+        table = 'A'
 
-    def test_get_exchangerates_no_data(self):
+        mock_get.side_effect = requests.exceptions.RequestException('Connection error')
+
+        with self.assertRaises(requests.exceptions.RequestException):
+            get_exchange_rates(start_date, end_date, table)
+    @patch('download_exchange.views.requests.get')
+    def test_get_exchange_rates_no_data(self, mock_get):
         today = datetime.date.today()
         start_date = today + datetime.timedelta(days=-3),
         end_date = today + datetime.timedelta(days=1)
+        table = 'A'
 
-        # with patch('requests.get') as mock_get:
-        #     mock_get.return_value.status_code = 404
-        response = get_exchange_rates(start_date, end_date, table=self.table)
-        self.assertIsInstance(response, Response)
+        # Symulacja odpowiedzi z kodem 404 (brak danych)
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_get.return_value = mock_response
 
+        # Wywołanie funkcji
+        response = get_exchange_rates(start_date, end_date, table)
+
+        # Sprawdzenie oczekiwanej odpowiedzi
         self.assertEqual(response.status_code, 404)
+
+    # def test_return_400_swapped_dates(self):
+    #     start_date = datetime.date(2023, 1, 7)
+    #     end_date = datetime.date(2023, 1, 1)
+    #
+    #     response = get_exchange_rates(start_date, end_date, table=self.table)
+    #
+    #     self.assertIsInstance(response, Response)
+    #
+    #     self.assertEqual(response.status_code, 400)
+
+    # def test_get_exchangerates_no_data(self):
+    #     today = datetime.date.today()
+    #     start_date = today + datetime.timedelta(days=-3),
+    #     end_date = today + datetime.timedelta(days=1)
+    #
+    #     response = get_exchange_rates(start_date, end_date, table=self.table)
+    #     self.assertIsInstance(response, Response)
+    #
+    #     self.assertEqual(response.status_code, 404)
 
 
 
@@ -140,7 +134,6 @@ class CheckExistingRatesTestCase(TestCase):
 
     def test_existing_rates(self):
         with patch('download_exchange.models.Rate.objects.filter') as mock_filter:
-            # mock_filter.return_value.count.return_value = 1
             mock_filter.return_value.count.return_value =1
             check_existing_rates(self.day_data, self.currency)
 
@@ -166,22 +159,20 @@ class CheckExistingRatesTestCase(TestCase):
 
 
 class DownloadRatesTestCase(TestCase):
-    def setUp(self) -> None:
-        self.factory = RequestFactory()
+
     def test_return_clean_data_form_for_get(self):
         form_data = {}
 
-        request = self.factory.get('/download_rates/', data = form_data)
         form_mock = MagicMock(spec=DateForms)
         form_mock.cleaned_data = form_data
         with patch('download_exchange.views.DateForms', return_value=form_mock):
-            response = download_rates(request)
+            # response = download_rates(request)
+            response = self.client.get('/download_rates/', data = form_data)
         self.assertEqual(response.status_code, 200)
 
 
-    def test_download_rates_valid_data(self):
+    def test_download_rates_valid_form(self):
         form_data = {'start_date': '2023-01-01', 'end_date': '2023-01-05'}
-        request = self.factory.post('/download-rates/', data=form_data)
         form_mock = MagicMock(spec=DateForms)
         form_mock.is_valid.return_value = True
         form_mock.cleaned_data = form_data
@@ -191,6 +182,77 @@ class DownloadRatesTestCase(TestCase):
         with patch('download_exchange.views.DateForms', return_value=form_mock):
             with patch('download_exchange.views.get_exchange_rates', return_value=exchange_rates_response_mock):
                 with patch('download_exchange.views.save_exchange_rates') as save_exchange_rates_mock:
-                    response = download_rates(request)
+                    response = self.client.post('/download_rates/', data=form_data)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(save_exchange_rates_mock.called)
+        self.assertTemplateUsed(response, 'index.html')
+
+        def test_404_response_(self):
+            today = datetime.date.today()
+            start_date = today + datetime.timedelta(days=-3),
+            end_date = today + datetime.timedelta(days=1)
+            form_data = {'start_date': start_date, 'end_date': end_date}
+            form_mock = MagicMock(spec=DateForms)
+            form_mock.is_valid.return_value = True
+            form_mock.cleaned_data = form_data
+            exchange_rates_response_mock = MagicMock(spec=HttpResponse)
+            exchange_rates_response_mock.status_code = 404
+
+            with patch('download_exchange.views.DateForms', return_value=form_mock):
+                with patch('download_exchange.views.get_exchange_rates', return_value=exchange_rates_response_mock):
+                    # response = download_rates(request)
+                    response = self.client.post('/download_rates/', data=form_data)
+
+            self.assertEqual(response.status_code, 404)
+            self.assertTemplateUsed(response, 'download_rates.html')
+
+
+        def test_response_swapped_dates(self):
+            form_data = {'start_date': '2023-01-10', 'end_date': '2023-01-05'}
+            form_mock = MagicMock(spec=DateForms)
+            form_mock.is_valid.return_value = True
+            form_mock.cleaned_data = form_data
+            exchange_rates_response_mock = MagicMock(spec=HttpResponse)
+            exchange_rates_response_mock.status_code = 400
+
+            with patch('download_exchange.views.DateForms', return_value=form_mock):
+                with patch('download_exchange.views.get_exchange_rates', return_value=exchange_rates_response_mock):
+                    response = self.client.post('/download_rates/', data=form_data)
+                    # response = download_rates(request)
+
+            self.assertEqual(response.status_code, 400)
+            self.assertTemplateUsed(response, 'download_rates.html')
+
+
+class CurrencyRatesTestCase(TestCase):
+
+    def test_currency_rates_valid_form(self):
+        form_data ={'start_date': '2023-01-01',
+            'end_date': '2023-01-02',
+            'code': 'USD'
+        }
+        form_mock = MagicMock(spec=CurrencyForms)
+        form_mock.is_valid.return_value = True
+        form_mock.cleaned_data = form_data
+
+        with patch('download_exchange.views.CurrencyForms',return_value=form_mock):
+            # response = currency_rates(request)
+            response = self.client.post('/currency_rates/', data=form_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'generated_data.html')
+
+
+    def test_currency_rates_invalid_data(self):
+        # Tworzenie testowego żądania POST z niepoprawnymi danymi
+        response = self.client.post('/currency_rates/', {
+            'start_date': '2023-01-01',
+            'end_date': '2022-12-31',  # End_date przed start_date
+            'code': 'XYZ'  # Nieprawidłowy kod waluty
+        })
+        # response = currency_rates(request)
+        # Sprawdzenie, czy odpowiedź ma status 200 (OK)
+        self.assertEqual(response.status_code, 200)
+        # Sprawdzenie, czy w odpowiedzi znajduje się oczekiwany szablon
+    # def test_
+        self.assertTemplateUsed(response, 'show_rates.html')

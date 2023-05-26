@@ -85,9 +85,9 @@ def currency_rates(request: WSGIRequest) -> HttpResponse:
         form = CurrencyForms(request.POST)
         if form.is_valid():
             form_data = form.cleaned_data
-            start_date = form_data["start_date"]
-            end_date = form_data["end_date"]
-            code = form_data['code']
+            start_date = form_data.get("start_date")
+            end_date = form_data.get("end_date")
+            code = form_data.get('code')
 
             data = Rate.objects.filter(
                 code=code,
